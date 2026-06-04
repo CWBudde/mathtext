@@ -23,7 +23,7 @@ generated = "strict"
 # but kept for parity with the layout sizing logic. Re-enable when wired up.
 [[linters.exclusions.rules]]
 linters = ["unused"]
-path = "layout_fence\\.go"
+path = "fence\\.go"
 text = "layoutMathBracketDelimiter"
 
 [linters.settings]
