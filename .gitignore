@@ -1,0 +1,9 @@
+cover.out
+coverage.out
+*.test
+*.out
+*.prof
+
+# example CLI binaries when built in place
+/examples/mathlayout/mathlayout
+/examples/normalize/normalize

@@ -1,0 +1,62 @@
+version = "2"
+
+[run]
+timeout = "5m"
+tests = true
+
+[linters]
+default = "standard"
+enable = [
+  "misspell",
+  "gocritic",
+  "revive",
+]
+disable = [
+  "depguard",
+  "errcheck",
+]
+
+[linters.exclusions]
+generated = "strict"
+
+# Carried over from the matplotlib-go split; this helper is currently unused
+# but kept for parity with the layout sizing logic. Re-enable when wired up.
+[[linters.exclusions.rules]]
+linters = ["unused"]
+path = "layout\\.go"
+text = "layoutMathBracketDelimiter"
+
+[linters.settings]
+
+[linters.settings.staticcheck]
+# Disable noisy quickfix-tagged suggestions (QF*) so staticcheck only flags
+# real correctness issues.
+checks = ["all", "-QF1001", "-QF1008"]
+
+[linters.settings.gocritic]
+enabled-tags = ["diagnostic", "style", "performance"]
+disabled-checks = [
+  "commentedOutCode",
+  "unnamedResult",
+  "importShadow",
+  "dupImport",
+  "dupSubExpr",
+  # MathText layout and cache types are intentionally value types
+  # for clarity and immutability; copy cost is acceptable.
+  "hugeParam",
+  "rangeValCopy",
+  "ifElseChain",
+  "paramTypeCombine",
+  # Stylistic; test code uses string(b) comparisons by choice.
+  "stringXbytes",
+]
+
+[linters.settings.revive]
+
+[[linters.settings.revive.rules]]
+name = "file-length-limit"
+
+[[linters.settings.revive.rules.arguments]]
+max = 2500
+skip-comments = false
+skip-blank-lines = false
