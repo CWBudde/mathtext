@@ -28,7 +28,10 @@ lint:
 	fi
 
 fmt:
-	{{go}} fmt ./...
+	treefmt --allow-missing-formatter
+
+check-formatted:
+	treefmt --allow-missing-formatter --fail-on-change
 
 tidy:
 	{{go}} mod tidy

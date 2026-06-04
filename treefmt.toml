@@ -1,0 +1,12 @@
+# treefmt configuration for mathtext.
+# Keep this focused: Go sources and the top-level README only.
+
+[formatter.gofmt]
+command = "gofmt"
+options = ["-w"]
+includes = ["*.go"]
+
+[formatter.prettier]
+command = "prettier"
+options = ["-w"]
+includes = ["README.md"]
