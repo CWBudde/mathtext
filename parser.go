@@ -175,6 +175,10 @@ func (p *mathLayoutParser) parseCommandNode() mathLayoutNode {
 	if _, ok := mathTextPassthroughCommands[name]; ok {
 		return p.parseStyledArgumentNode(name)
 	}
+	if mathAlphabetCommandName(name) {
+		text, _ := mathAlphabetCommand(name, nodePlainText(p.parseArgumentNode()))
+		return mathLayoutNode{kind: mathLayoutText, text: text}
+	}
 	if mark, ok := mathTextAccentMarks[name]; ok {
 		return mathLayoutNode{kind: mathLayoutText, text: applyMathAccent(nodePlainText(p.parseArgumentNode()), mark)}
 	}
@@ -225,6 +229,12 @@ func (p *mathLayoutParser) parseCommandNode() mathLayoutNode {
 		radicand := p.parseArgumentNode()
 		return mathLayoutNode{kind: mathLayoutSqrt, radicand: &radicand, index: index}
 	default:
+		if r, ok := tex2uni[name]; ok {
+			if mathTextCommandNeedsOperatorSpacing(name) {
+				return mathLayoutNode{kind: mathLayoutText, text: string(r), spaced: true}
+			}
+			return mathAtomNode(r, p.implicitItalic)
+		}
 		reportUnknownCommand(name)
 		return mathLayoutNode{kind: mathLayoutText, text: `\` + name}
 	}
@@ -556,6 +566,9 @@ func (p *mathLayoutParser) parseDelimiterToken() string {
 		}
 		if mapped, ok := mathTextCommandMap[name]; ok {
 			return mapped
+		}
+		if r, ok := tex2uni[name]; ok {
+			return string(r)
 		}
 		return ""
 	}

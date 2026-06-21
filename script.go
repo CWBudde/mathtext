@@ -265,7 +265,10 @@ var mathTextSpacedCommandSymbols = map[string]struct{}{
 }
 
 func mathTextCommandNeedsOperatorSpacing(name string) bool {
-	_, ok := mathTextSpacedCommandSymbols[name]
+	if _, ok := mathTextSpacedCommandSymbols[name]; ok {
+		return true
+	}
+	_, ok := mathTex2UniSpacedNames[name]
 	return ok
 }
 

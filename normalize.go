@@ -257,6 +257,10 @@ func (p *mathTextParser) parseCommand() string {
 	if mark, ok := mathTextAccentMarks[name]; ok {
 		return applyMathAccent(p.parseArgument(), mark)
 	}
+	if mathAlphabetCommandName(name) {
+		text, _ := mathAlphabetCommand(name, p.parseArgument())
+		return text
+	}
 	if name == "begin" {
 		return p.parseEnvironment()
 	}
@@ -291,6 +295,9 @@ func (p *mathTextParser) parseCommand() string {
 		}
 		return "√" + groupMathAtom(arg)
 	default:
+		if r, ok := tex2uni[name]; ok {
+			return string(r)
+		}
 		return `\` + name
 	}
 }
