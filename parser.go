@@ -225,6 +225,7 @@ func (p *mathLayoutParser) parseCommandNode() mathLayoutNode {
 		radicand := p.parseArgumentNode()
 		return mathLayoutNode{kind: mathLayoutSqrt, radicand: &radicand, index: index}
 	default:
+		reportUnknownCommand(name)
 		return mathLayoutNode{kind: mathLayoutText, text: `\` + name}
 	}
 }
