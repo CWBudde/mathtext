@@ -82,6 +82,9 @@ func Normalize(text string) string {
 // (`\\frac` -> `\frac`) while PRESERVING a standalone `\\`, which is the
 // matrix/\substack line separator. The collapse only fires when the doubled
 // backslash is immediately followed by a letter, so a real `\\` break survives.
+// A fully-doubled line separator (`\\\\`, as produced by sources that double
+// every backslash) collapses to a single `\\` so it parses as one row break
+// rather than two (which would inject a spurious empty row).
 func collapseEscapedBackslashes(s string) string {
 	if !strings.Contains(s, `\\`) {
 		return s
@@ -90,6 +93,11 @@ func collapseEscapedBackslashes(s string) string {
 	var out strings.Builder
 	for i := 0; i < len(runes); i++ {
 		if runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == '\\' {
+			if i+3 < len(runes) && runes[i+2] == '\\' && runes[i+3] == '\\' {
+				out.WriteString(`\\`) // \\\\ -> \\ (escaped line separator)
+				i += 3
+				continue
+			}
 			if i+2 < len(runes) && unicode.IsLetter(runes[i+2]) {
 				out.WriteRune('\\') // \\X -> \X (X emitted next iteration)
 				i++
