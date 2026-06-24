@@ -106,6 +106,45 @@ func layoutAccentGlyphBox(r Measurer, glyph string, size float64, fontKey string
 	}
 }
 
+// autoWidthAccentBox ports matplotlib's AutoWidthChar with char_class=Accent for
+// the DejaVu Sans fontset. get_sized_alternatives_for_symbol returns the size-0
+// DejaVu Sans combining mark followed by the STIX sized-symbol variants; the
+// first whose ink width reaches the target nucleus width is selected, then the
+// glyph is scaled so its ink width matches the target exactly. This yields a
+// wide-but-thin accent (vs. uniformly scaling the small base glyph, which would
+// be far too bold).
+func autoWidthAccentBox(r Measurer, glyph string, target, size float64) mathLayoutBox {
+	candidates := []mathDelimiterGlyph{
+		{text: glyph, fontKey: mathAutoHeightBaseFontKey},
+		{text: glyph, fontKey: "STIXSizeOneSym"},
+		{text: glyph, fontKey: "STIXSizeTwoSym"},
+		{text: glyph, fontKey: "STIXSizeThreeSym"},
+		{text: glyph, fontKey: "STIXSizeFourSym"},
+		{text: glyph, fontKey: "STIXSizeFiveSym"},
+	}
+	selected := candidates[len(candidates)-1]
+	selectedWidth := 0.0
+	for _, c := range candidates {
+		w := layoutAccentGlyphBox(r, c.text, size, c.fontKey).Width
+		if w <= 0 {
+			continue
+		}
+		selected = c
+		selectedWidth = w
+		if w >= target {
+			break
+		}
+	}
+	if selectedWidth <= 0 {
+		return layoutAccentGlyphBox(r, glyph, size, mathAutoHeightBaseFontKey)
+	}
+	accentSize := size * target / selectedWidth
+	if accentSize <= 0 {
+		accentSize = size
+	}
+	return layoutAccentGlyphBox(r, selected.text, accentSize, selected.fontKey)
+}
+
 // layoutMathAccent is a faithful port of matplotlib's `Parser.accent`
 // (_mathtext.py): the accent glyph is centred over the nucleus via
 // HCentered([Hbox(W/4), accent]).hpack(W) and stacked above it with a
@@ -118,12 +157,7 @@ func layoutMathAccent(r Measurer, n mathLayoutNode, size float64, fontKey string
 
 	var accentBox mathLayoutBox
 	if n.accentWide {
-		base := layoutAccentGlyphBox(r, n.accent, size, fontKey)
-		accentSize := size
-		if base.Width > 0 && width > 0 {
-			accentSize = size * (width / base.Width)
-		}
-		accentBox = layoutAccentGlyphBox(r, n.accent, accentSize, fontKey)
+		accentBox = autoWidthAccentBox(r, n.accent, width, size)
 	} else {
 		accentBox = layoutAccentGlyphBox(r, n.accent, size, fontKey)
 		for i := 0; i < n.accentRings; i++ {
@@ -170,9 +204,12 @@ func layoutMathOverline(r Measurer, n mathLayoutNode, size float64, fontKey stri
 	out.appendTranslated(body, 0, 0)
 	out.Width = body.Width
 	out.Descent = body.Descent
+	// The bar sits a 2*thickness gap above the body (rule top at body.Ascent+3t);
+	// the clearance is padding ABOVE the bar, extending the box ascent so the
+	// va-centered placement matches matplotlib without moving the bar itself.
 	out.Ascent = body.Ascent + thickness*3.0 + clearance
 
-	ruleTop := -out.Ascent
+	ruleTop := -(body.Ascent + thickness*3.0)
 	out.rules = append(out.rules, MathTextLayoutRule{
 		Rect: Rect{
 			Min: Pt{X: 0, Y: ruleTop},
