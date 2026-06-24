@@ -17,6 +17,10 @@ const (
 	mathLayoutStyled
 	mathLayoutFence
 	mathLayoutMatrix
+	mathLayoutAccent
+	mathLayoutOverline
+	mathLayoutStack
+	mathLayoutSubstack
 )
 
 const (
@@ -55,6 +59,15 @@ type mathLayoutNode struct {
 	style    FontStyle
 	weight   int
 	spaced   bool
+
+	// Accent / stacking fields (Phase 8 accent model).
+	accent      string          // accent glyph (the literal accent rune, resolved at parse time)
+	accentWide  bool            // \widehat/\widetilde/\widebar: scale the glyph to the nucleus width
+	accentUnder bool            // place the (wide) accent below the nucleus (\underbrace)
+	accentRings int             // extra shrink steps applied to the accent box (\mathring = 2)
+	stackTop    *mathLayoutNode // \overset/\stackrel annotation (drawn above the body)
+	stackBottom *mathLayoutNode // \underset annotation (drawn below the body)
+	stackRel    bool            // \stackrel: the result behaves as a relation (operator spacing)
 }
 
 type mathLayoutBox struct {
@@ -158,6 +171,26 @@ func nodePlainText(n mathLayoutNode) string {
 		return "√" + groupMathAtom(nodePlainText(pointerNode(n.radicand)))
 	case mathLayoutStyled:
 		return nodePlainText(pointerNode(n.child))
+	case mathLayoutAccent, mathLayoutOverline:
+		return nodePlainText(pointerNode(n.child))
+	case mathLayoutStack:
+		base := nodePlainText(pointerNode(n.base))
+		if n.stackTop != nil {
+			base = nodePlainText(*n.stackTop) + " " + base
+		}
+		if n.stackBottom != nil {
+			base = base + " " + nodePlainText(*n.stackBottom)
+		}
+		return base
+	case mathLayoutSubstack:
+		var out strings.Builder
+		for i, line := range n.children {
+			if i > 0 {
+				out.WriteString("; ")
+			}
+			out.WriteString(nodePlainText(line))
+		}
+		return out.String()
 	case mathLayoutFence:
 		var out strings.Builder
 		if n.left != "" {

@@ -134,6 +134,12 @@ func (p *mathLayoutParser) parseCommandNode() mathLayoutNode {
 			return mathLayoutNode{kind: mathLayoutSpace, widthEm: 0.333}
 		case '!':
 			return mathLayoutNode{kind: mathLayoutSpace, widthEm: -0.166}
+		case '^', '~', '\'', '.', '"', '`':
+			// Single-character accent commands (\^ \~ \' \. \" \`), matching
+			// matplotlib's `_accent_map` char keys.
+			glyph := mathAccentCharRunes[r]
+			arg := p.parseArgumentNode()
+			return mathLayoutNode{kind: mathLayoutAccent, child: &arg, accent: string(glyph)}
 		default:
 			return mathLayoutNode{kind: mathLayoutText, text: string(r)}
 		}
@@ -178,6 +184,46 @@ func (p *mathLayoutParser) parseCommandNode() mathLayoutNode {
 	if mathAlphabetCommandName(name) {
 		text, _ := mathAlphabetCommand(name, nodePlainText(p.parseArgumentNode()))
 		return mathLayoutNode{kind: mathLayoutText, text: text}
+	}
+	if glyph, ok := mathAccentGlyphRune(name); ok {
+		arg := p.parseArgumentNode()
+		node := mathLayoutNode{kind: mathLayoutAccent, child: &arg, accent: string(glyph)}
+		if name == "mathring" {
+			node.accentRings = 2
+		}
+		return node
+	}
+	if glyph, ok := mathWideAccentGlyphRune(name); ok {
+		arg := p.parseArgumentNode()
+		return mathLayoutNode{kind: mathLayoutAccent, child: &arg, accent: string(glyph), accentWide: true}
+	}
+	switch name {
+	case "overline":
+		arg := p.parseArgumentNode()
+		return mathLayoutNode{kind: mathLayoutOverline, child: &arg}
+	case "overset", "stackrel":
+		top := p.parseArgumentNode()
+		base := p.parseArgumentNode()
+		return mathLayoutNode{kind: mathLayoutStack, base: &base, stackTop: &top, stackRel: name == "stackrel"}
+	case "underset":
+		bottom := p.parseArgumentNode()
+		base := p.parseArgumentNode()
+		return mathLayoutNode{kind: mathLayoutStack, base: &base, stackBottom: &bottom}
+	case "overbrace", "underbrace":
+		// Best-effort, non-parity (matplotlib mathtext has no brace accents):
+		// stretch a horizontal brace glyph over/under the nucleus.
+		arg := p.parseArgumentNode()
+		if name == "underbrace" {
+			return mathLayoutNode{kind: mathLayoutAccent, child: &arg, accent: "⏟", accentWide: true, accentUnder: true}
+		}
+		return mathLayoutNode{kind: mathLayoutAccent, child: &arg, accent: "⏞", accentWide: true}
+	case "substack":
+		return p.parseSubstackNode()
+	case "not":
+		// Best-effort (matplotlib mathtext has no \not): overlay a combining long
+		// solidus on the following atom.
+		arg := p.parseArgumentNode()
+		return mathLayoutNode{kind: mathLayoutText, text: applyMathAccent(nodePlainText(arg), '̸')}
 	}
 	if mark, ok := mathTextAccentMarks[name]; ok {
 		return mathLayoutNode{kind: mathLayoutText, text: applyMathAccent(nodePlainText(p.parseArgumentNode()), mark)}
@@ -276,6 +322,79 @@ func (p *mathLayoutParser) parseStyledArgumentNode(name string) mathLayoutNode {
 		return arg
 	}
 	return node
+}
+
+// parseSubstackNode parses \substack{line0 \\ line1 \\ ...}. The \\ separators
+// survive collapseEscapedBackslashes (which only collapses \\ before a letter),
+// so they are detected with the shared matrix row-separator helpers.
+func (p *mathLayoutParser) parseSubstackNode() mathLayoutNode {
+	p.skipSpace()
+	var lines []mathLayoutNode
+	if p.pos < len(p.input) && p.input[p.pos] == '{' {
+		p.pos++ // consume '{'
+		for p.pos < len(p.input) && p.input[p.pos] != '}' {
+			lines = append(lines, p.parseSubstackLine())
+			if p.consumeMatrixRowSeparator() {
+				continue
+			}
+			break
+		}
+		if p.pos < len(p.input) && p.input[p.pos] == '}' {
+			p.pos++
+		}
+	} else {
+		lines = append(lines, p.parseArgumentNode())
+	}
+	return mathLayoutNode{kind: mathLayoutSubstack, children: lines}
+}
+
+// parseSubstackLine parses one \substack line, stopping at a row separator (\\)
+// or the closing brace.
+func (p *mathLayoutParser) parseSubstackLine() mathLayoutNode {
+	var children []mathLayoutNode
+	appendText := func(text string) { children = appendMathText(children, text) }
+	for p.pos < len(p.input) {
+		if p.input[p.pos] == '}' || p.startsMatrixRowSeparator() {
+			break
+		}
+		r := p.input[p.pos]
+		switch r {
+		case '{':
+			p.pos++
+			children = append(children, p.parseUntil('}').children...)
+			if p.pos < len(p.input) && p.input[p.pos] == '}' {
+				p.pos++
+			}
+		case '^', '_':
+			p.pos++
+			children = attachMathScript(children, r, p.parseScriptArgumentNode(scriptTargetsOverUnderFunction(children)))
+		case '\\':
+			node := p.parseCommandNode()
+			if node.spaced {
+				children = p.appendMathSpacedOperator(children, node.text, '}')
+			} else if node.kind == mathLayoutText {
+				appendText(node.text)
+			} else if !node.isEmpty() {
+				children = append(children, node)
+			}
+		case '~':
+			appendText(" ")
+			p.pos++
+		case '+', '-', '=':
+			children = p.appendMathOperator(children, r, '}')
+		case ',', ';', '.', '!':
+			children = p.appendMathPunctuation(children, r, '}')
+		case ' ', '\t', '\n', '\r':
+			if !p.implicitItalic {
+				appendText(" ")
+			}
+			p.pos++
+		default:
+			children = appendMathAtom(children, r, p.implicitItalic)
+			p.pos++
+		}
+	}
+	return mathLayoutNode{kind: mathLayoutList, children: children}
 }
 
 func mathDelimiterFontKey() string {

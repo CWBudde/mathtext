@@ -161,13 +161,28 @@ var mathTextOperatorMap = map[string]string{
 	"tanh":   "tanh",
 }
 
+// mathTextAccentMarks drives the plain-text (non-layout) fallback: each accent
+// is approximated by appending a Unicode combining mark to the nucleus. The
+// layout parser instead builds centred separate-glyph Accent nodes (accent.go).
 var mathTextAccentMarks = map[string]rune{
-	"bar":      '̅',
-	"overline": '̅',
-	"hat":      '̂',
-	"tilde":    '̃',
-	"vec":      '⃗',
-	"dot":      '̇',
+	"bar":            '̅',
+	"overline":       '̅',
+	"hat":            '̂',
+	"widehat":        '̂',
+	"tilde":          '̃',
+	"widetilde":      '̃',
+	"widebar":        '̅',
+	"vec":            '⃗',
+	"dot":            '̇',
+	"ddot":           '̈',
+	"dddot":          '⃛',
+	"ddddot":         '⃜',
+	"breve":          '̆',
+	"grave":          '̀',
+	"acute":          '́',
+	"mathring":       '̊',
+	"overrightarrow": '⃗',
+	"overleftarrow":  '⃖',
 }
 
 var mathTextPassthroughCommands = map[string]struct{}{

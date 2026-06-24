@@ -10,7 +10,7 @@ func LayoutMathText(m Measurer, expr string, size float64, fontKey string, opts 
 	if m == nil || strings.TrimSpace(expr) == "" || size <= 0 {
 		return MathTextLayout{}, false
 	}
-	expr = strings.ReplaceAll(expr, `\\`, `\`)
+	expr = collapseEscapedBackslashes(expr)
 	cacheKey, useLayoutCache := opts.layoutCacheKey("math", expr, size, fontKey)
 	if useLayoutCache {
 		if layout, ok := opts.Cache.layout(cacheKey); ok {
@@ -134,6 +134,14 @@ func layoutMathNode(r Measurer, n mathLayoutNode, size float64, fontKey string, 
 		return layoutMathFence(r, n, size, fontKey, opts)
 	case mathLayoutMatrix:
 		return layoutMathMatrix(r, n, size, fontKey, opts)
+	case mathLayoutAccent:
+		return layoutMathAccent(r, n, size, fontKey, opts)
+	case mathLayoutOverline:
+		return layoutMathOverline(r, n, size, fontKey, opts)
+	case mathLayoutStack:
+		return layoutMathStack(r, n, size, fontKey, opts)
+	case mathLayoutSubstack:
+		return layoutMathSubstack(r, n, size, fontKey, opts)
 	default:
 		return mathLayoutBox{}
 	}

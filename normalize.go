@@ -73,9 +73,35 @@ func NormalizeDisplay(text string) string {
 // Normalize converts one MathText expression into a plain Unicode fallback
 // string. The input does not need surrounding dollar delimiters.
 func Normalize(text string) string {
-	text = strings.ReplaceAll(text, `\\`, `\`)
+	text = collapseEscapedBackslashes(text)
 	parser := mathTextParser{input: []rune(text)}
 	return parser.parseUntil(0)
+}
+
+// collapseEscapedBackslashes leniently collapses an escaped command backslash
+// (`\\frac` -> `\frac`) while PRESERVING a standalone `\\`, which is the
+// matrix/\substack line separator. The collapse only fires when the doubled
+// backslash is immediately followed by a letter, so a real `\\` break survives.
+func collapseEscapedBackslashes(s string) string {
+	if !strings.Contains(s, `\\`) {
+		return s
+	}
+	runes := []rune(s)
+	var out strings.Builder
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == '\\' {
+			if i+2 < len(runes) && unicode.IsLetter(runes[i+2]) {
+				out.WriteRune('\\') // \\X -> \X (X emitted next iteration)
+				i++
+				continue
+			}
+			out.WriteString(`\\`) // preserve the line separator
+			i++
+			continue
+		}
+		out.WriteRune(runes[i])
+	}
+	return out.String()
 }
 
 // SplitDisplaySegments splits text into plain and $...$ MathText segments. The
@@ -256,6 +282,29 @@ func (p *mathTextParser) parseCommand() string {
 	}
 	if mark, ok := mathTextAccentMarks[name]; ok {
 		return applyMathAccent(p.parseArgument(), mark)
+	}
+	switch name {
+	case "overline":
+		return applyMathAccent(p.parseArgument(), '̅')
+	case "overset", "stackrel":
+		top := p.parseArgument()
+		base := p.parseArgument()
+		return strings.TrimSpace(top + " " + base)
+	case "underset":
+		bottom := p.parseArgument()
+		base := p.parseArgument()
+		return strings.TrimSpace(base + " " + bottom)
+	case "overbrace", "underbrace":
+		return p.parseArgument()
+	case "not":
+		return applyMathAccent(p.parseArgument(), '̸')
+	case "substack":
+		text := collapseEscapedBackslashes(p.parseBraceText())
+		parts := strings.Split(text, `\\`)
+		for i := range parts {
+			parts[i] = strings.TrimSpace(Normalize(parts[i]))
+		}
+		return strings.Join(parts, "; ")
 	}
 	if mathAlphabetCommandName(name) {
 		text, _ := mathAlphabetCommand(name, p.parseArgument())

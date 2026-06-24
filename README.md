@@ -74,8 +74,18 @@ shows up in plot labels and titles:
 - Math styles: `\mathit`, `\mathrm`, `\mathbf`, `\mathsf`, `\mathtt`,
   `\mathcal`, `\mathbb`
 - Matrix environments: `pmatrix`, `bmatrix`, `vmatrix`, `Vmatrix`, `matrix`
-- Accents: `\hat`, `\bar`, `\vec`, `\dot`, `\tilde`, ...
+- Accents (centred separate-glyph over the nucleus): `\hat`, `\bar`, `\vec`,
+  `\dot`, `\ddot`, `\dddot`, `\ddddot`, `\tilde`, `\breve`, `\grave`, `\acute`,
+  `\mathring`, `\overrightarrow`, `\overleftarrow`, and the char forms
+  `\^ \~ \' \. \" \``
+- Wide accents (scaled to the nucleus width): `\widehat`, `\widetilde`,
+  `\widebar`
+- Overline rule: `\overline`
+- Stacking: `\overset`, `\underset`, `\stackrel`, and `\substack{a \\ b}`
 - Inline math segments inside display text via `$...$`
+
+Beyond Matplotlib's MathText, the parser also accepts `\overbrace`,
+`\underbrace`, and `\not` as best-effort extensions (no Matplotlib reference).
 
 The full command tables live in
 [`normalize.go`](./normalize.go) — `mathTextCommandMap`,
