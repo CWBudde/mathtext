@@ -127,7 +127,7 @@ func TestLayoutSingleAccentCentersAboveNucleus(t *testing.T) {
 
 func TestLayoutWideAccentScalesGlyph(t *testing.T) {
 	wide := accentRuns(t, `\widehat{xy}`)
-	accent, ok := findRun(wide.Runs, "^")
+	accent, ok := findRun(wide.Runs, string(rune(0x302)))
 	if !ok {
 		t.Fatalf("missing wide accent run: %+v", wide.Runs)
 	}

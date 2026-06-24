@@ -36,12 +36,13 @@ var mathAccentCharRunes = map[rune]rune{
 
 // mathWideAccentGlyphRunes maps matplotlib's `_wide_accents` to the glyph that
 // is scaled to the nucleus width (matplotlib's AutoWidthChar). DejaVu has no
-// sized alternatives, so matplotlib scales the base glyph uniformly; widehat and
-// widetilde use the ASCII caret/tilde, widebar the spacing overline.
+// sized alternatives, so matplotlib resolves the symbol to its combining mark
+// (get_unicode_index) and scales it uniformly — widehat/widetilde/widebar use
+// the same combining marks as \hat/\tilde/\bar (U+0302/U+0303/U+0305).
 var mathWideAccentGlyphRunes = map[string]rune{
-	"widehat":   '^', // '^'
-	"widetilde": '~', // '~'
-	"widebar":   '‾', // '‾' OVERLINE
+	"widehat":   '̂', // U+0302 COMBINING CIRCUMFLEX ACCENT
+	"widetilde": '̃', // U+0303 COMBINING TILDE
+	"widebar":   '̅', // U+0305 COMBINING OVERLINE
 }
 
 func mathAccentGlyphRune(name string) (rune, bool) {
