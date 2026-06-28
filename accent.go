@@ -195,18 +195,30 @@ func layoutMathAccent(r Measurer, n mathLayoutNode, size float64, fontKey string
 // layoutMathOverline ports matplotlib's `Parser.overline` (_mathtext.py): a
 // full-width horizontal rule of one underline thickness is placed above the body
 // with a 2*thickness + clearance gap, where clearance = fontsize*dpi/(100*12).
+//
+// matplotlib builds this as Vlist([Hrule, Glue('fill'), Hlist([body])]) vpacked
+// to height body.height + 3*thickness + clearance. When that Vlist is shipped,
+// vlist_out ROUNDS the stretched fill glue (cur_g = round(glue_set*cur_glue)),
+// so the body baseline lands round(gap) rather than gap below the bar. We must
+// reproduce that rounding: the box ascent/depth stay at their nominal vpack
+// values (so the va-centred anchoring is unchanged), but the body — and only the
+// body — is shipped down by round(gap)-gap. Without this the body sits ~1px high
+// under the bar, because the body's sub-pixel offset tips an int() truncation in
+// the raster placement (see test/parity mathtext_accents \overline{x+y}).
 func layoutMathOverline(r Measurer, n mathLayoutNode, size float64, fontKey string, opts Options) mathLayoutBox {
 	body := layoutMathNode(r, pointerNode(n.child), size, fontKey, opts)
 	thickness := mathUnderlineThickness(r, size, fontKey)
 	clearance := mathFontSizePixels(r, size, fontKey) * 72.0 / 1200.0
 
+	// Natural fill glue between bar and body, and the integer value matplotlib's
+	// vlist_out ships it at (Python round = round-half-to-even).
+	gap := thickness*2.0 + clearance
+	bodyShift := math.RoundToEven(gap) - gap
+
 	var out mathLayoutBox
-	out.appendTranslated(body, 0, 0)
+	out.appendTranslated(body, 0, bodyShift)
 	out.Width = body.Width
 	out.Descent = body.Descent
-	// The bar sits a 2*thickness gap above the body (rule top at body.Ascent+3t);
-	// the clearance is padding ABOVE the bar, extending the box ascent so the
-	// va-centered placement matches matplotlib without moving the bar itself.
 	out.Ascent = body.Ascent + thickness*3.0 + clearance
 
 	ruleTop := -(body.Ascent + thickness*3.0)
